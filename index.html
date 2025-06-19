@@ -192,6 +192,7 @@
     <button onclick="speechSynthesis.cancel()">🛑</button>
     <button onclick="chat.innerHTML = ''">🧹 Clear</button>
     <button onclick="exportChat()">⬇️ Export</button>
+    <button onclick="generateImage()">🖼 Generate Image</button>
     <select id="voiceSelect"></select>
   </div>
 
@@ -319,6 +320,54 @@
       a.download = 'chat.txt';
       a.click();
       URL.revokeObjectURL(url);
+    }
+
+    async function generateImage() {
+      const prompt = input.value.trim();
+      if (!prompt) return;
+      appendMessage(prompt, "user");
+      input.value = "";
+      appendMessage("Generating image...", "bot");
+
+      try {
+        const geminiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=AIzaSyBTPmXDzU3SjB8wSC7AAxo7xUZx8zFFTi8", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: `Generate an image based on this description: ${prompt}` }] }]
+          })
+        });
+        const geminiData = await geminiRes.json();
+        const imageBase64 = geminiData.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (imageBase64) {
+          const img = document.createElement("img");
+          img.src = `data:image/png;base64,${imageBase64}`;
+          img.style.maxWidth = "300px";
+          img.style.borderRadius = "10px";
+          appendMessage(img.outerHTML, "bot");
+          return;
+        }
+        throw new Error("Gemini failed");
+      } catch (err) {
+        const deepRes = await fetch("https://api.deepai.org/api/text2img", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "api-key": "quickstart-QUdJIGlzIGNvbWluZy4uLi4K"
+          },
+          body: `text=${encodeURIComponent(prompt)}`
+        });
+        const deepData = await deepRes.json();
+        if (deepData.output_url) {
+          const img = document.createElement("img");
+          img.src = deepData.output_url;
+          img.style.maxWidth = "300px";
+          img.style.borderRadius = "10px";
+          appendMessage(img.outerHTML, "bot");
+        } else {
+          appendMessage("❌ Both Gemini and DeepAI image generation failed.", "bot");
+        }
+      }
     }
   </script>
 </body>
