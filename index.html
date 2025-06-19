@@ -11,12 +11,6 @@
       --user-bg: #4b6cb7;
       --bot-bg: #2e2e2e;
     }
-    body.dark {
-      --bg: #0f0f0f;
-      --text: #ffffff;
-      --user-bg: #4b6cb7;
-      --bot-bg: #2e2e2e;
-    }
     body.light {
       --bg: #ffffff;
       --text: #000000;
@@ -181,12 +175,11 @@
       font-size: 1rem;
       border-radius: 25px;
       border: none;
-      background: #1e1e1e;
-      color: white;
+      background: var(--bot-bg);
+      color: var(--text);
       outline: none;
       margin-top: 10px;
     }
-    body.light #input { background: #eee; color: black; }
     ::placeholder { color: #888; }
     .mic-button {
       background: radial-gradient(circle at center, #007aff, #003366);
@@ -253,6 +246,104 @@
         location.reload();
       });
     });
+
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.body.className = savedTheme;
+    themeToggle.value = savedTheme;
+    themeToggle.addEventListener('change', () => {
+      document.body.className = themeToggle.value;
+      localStorage.setItem('theme', themeToggle.value);
+    });
+
+    // Gemini chat
+    const input = document.getElementById('input');
+    const chat = document.getElementById('chat');
+    const voiceSelect = document.getElementById('voiceSelect');
+    const apiKey = 'AIzaSyBTPmXDzU3SjB8wSC7AAxo7xUZx8zFFTi8';
+
+    function appendMessage(text, sender) {
+      const msg = document.createElement('div');
+      msg.className = 'message ' + sender;
+      msg.textContent = text;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function speak(text) {
+      const utter = new SpeechSynthesisUtterance(text);
+      const voices = speechSynthesis.getVoices();
+      utter.voice = voices.find(v => v.lang.includes('en')) || voices[0];
+      utter.lang = 'en-US';
+      speechSynthesis.speak(utter);
+    }
+
+    function sendMessage() {
+      const msg = input.value.trim();
+      if (!msg) return;
+      appendMessage(msg, 'user');
+      input.value = '';
+
+      fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: msg }] }],
+          generation_config: { maxOutputTokens: 300, temperature: 0.7 }
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Sorry, I did not understand that.';
+        appendMessage(reply, 'bot');
+        speak(reply);
+      })
+      .catch(() => appendMessage('Failed to get response.', 'bot'));
+    }
+
+    document.querySelector('.mic-button').onclick = () => {
+      if (!('webkitSpeechRecognition' in window)) return alert('Speech not supported.');
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.start();
+      recognition.onresult = e => {
+        input.value = e.results[0][0].transcript;
+        sendMessage();
+      };
+    };
+
+    document.querySelector('button[title="Weather"]').onclick = () => {
+      input.value = 'What is the weather today?';
+      sendMessage();
+    };
+
+    document.querySelector('button[title="Joke"]').onclick = () => {
+      input.value = 'Tell me a joke';
+      sendMessage();
+    };
+
+    document.querySelector('button[title="Website"]').onclick = () => {
+      const url = prompt('Enter website URL:', 'https://ripplestudio.in');
+      if (url) window.open(url, '_blank');
+    };
+
+    document.querySelector('button[title="Stop"]').onclick = () => speechSynthesis.cancel();
+
+    document.querySelector('button[title="Clear"]').onclick = () => chat.innerHTML = '';
+
+    document.querySelector('button[title="Export"]').onclick = () => {
+      const text = [...chat.querySelectorAll('.message')].map(m => m.classList.contains('user') ? 'USER: ' + m.textContent : 'BOT: ' + m.textContent).join('\n\n');
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Ripple_Chat_History.txt';
+      a.click();
+    };
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendMessage();
+    });
   </script>
 </head>
 <body>
@@ -282,9 +373,7 @@
       <button title="Stop">🛑</button>
       <button title="Clear">🧹 Clear</button>
       <button title="Export">⬇️ Export</button>
-      <select id="voiceSelect">
-        <option>Microsoft David - English (United States)</option>
-      </select>
+      <select id="voiceSelect"></select>
     </div>
     <div id="inputArea">
       <button class="mic-button">🎤</button>
