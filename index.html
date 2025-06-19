@@ -3,9 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ripple AI Assistant</title>
+  <title>Ripple Studio AI</title>
   <style>
     :root {
+      --bg: #0f0f0f;
+      --text: #ffffff;
+      --user-bg: #4b6cb7;
+      --bot-bg: #2e2e2e;
+    }
+    body.dark {
       --bg: #0f0f0f;
       --text: #ffffff;
       --user-bg: #4b6cb7;
@@ -48,17 +54,42 @@
       height: 100vh;
       transition: background 0.3s, color 0.3s;
     }
+    .hidden { display: none; }
+    #loginPage {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      position: relative;
+    }
+    #googleSignIn {
+      padding: 10px 20px;
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    #chatUI {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
     #themeToggle {
       position: absolute;
       top: 10px;
       left: 10px;
       background: none;
       color: var(--text);
-      font-size: 16px;
       border: 1px solid var(--text);
       padding: 4px 8px;
-      border-radius: 5px;
-      cursor: pointer;
+      border-radius: 6px;
+      font-size: 1rem;
       z-index: 100;
     }
     #chat {
@@ -73,258 +104,135 @@
       padding: 14px 20px;
       border-radius: 20px;
       max-width: 80%;
-      font-size: 1.05rem;
+      font-size: 1rem;
       line-height: 1.4;
-      word-wrap: break-word;
-      animation: bubbleIn 0.3s ease-out;
-      position: relative;
-    }
-    .message small {
-      display: block;
-      font-size: 0.7rem;
-      opacity: 0.7;
-      margin-bottom: 5px;
+      animation: fadeIn 0.3s;
     }
     .user { background: var(--user-bg); align-self: flex-end; }
     .bot { background: var(--bot-bg); align-self: flex-start; }
-
-    @keyframes bubbleIn {
-      0% { opacity: 0; transform: translateY(10px); }
-      100% { opacity: 1; transform: translateY(0); }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-top: 1px solid var(--text);
+    }
+    .controls button, .controls select {
+      padding: 8px 12px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: none;
+      background: var(--bot-bg);
+      color: var(--text);
+      cursor: pointer;
+    }
     #inputArea {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px 10px;
-      border-top: 1px solid #333;
+      padding: 10px;
     }
+    #input {
+      width: 90%;
+      max-width: 500px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      border-radius: 25px;
+      border: none;
+      background: #1e1e1e;
+      color: white;
+      outline: none;
+      margin-top: 10px;
+    }
+    body.light #input { background: #eee; color: black; }
+    ::placeholder { color: #888; }
     .mic-button {
       background: radial-gradient(circle at center, #007aff, #003366);
       border: none;
       width: 70px;
       height: 70px;
       border-radius: 50%;
-      font-size: 1.8rem;
-      box-shadow: 0 0 25px rgba(0,122,255,0.6);
+      font-size: 2rem;
       color: white;
+      box-shadow: 0 0 25px rgba(0,122,255,0.6);
       cursor: pointer;
+      margin-bottom: 10px;
     }
     .mic-button:hover { transform: scale(1.05); }
     .mic-button:active { transform: scale(0.95); }
-    #input {
-      margin-top: 15px;
-      padding: 12px 20px;
-      font-size: 1rem;
-      border: none;
-      border-radius: 25px;
-      width: 90%;
-      max-width: 500px;
-      background: #1e1e1e;
-      color: white;
-      outline: none;
-    }
-    body.light #input { background: #eee; color: black; }
-    ::placeholder { color: #888; }
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      padding: 10px;
-    }
-    select, button {
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: none;
-      font-size: 1rem;
-    }
   </style>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBy8bjMRk69llFZ7bf2QosGOUIa4zEFGS8",
+      authDomain: "ai-assitant-c62f6.firebaseapp.com",
+      projectId: "ai-assitant-c62f6",
+      storageBucket: "ai-assitant-c62f6.appspot.com",
+      messagingSenderId: "1050697728777",
+      appId: "1:1050697728777:web:f5a2eeaecb1256936789d8",
+      measurementId: "G-5N25L6WM7T"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+
+    document.getElementById('googleSignIn').addEventListener('click', () => {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          document.getElementById('loginPage').classList.add('hidden');
+          document.getElementById('chatUI').classList.remove('hidden');
+        })
+        .catch((error) => {
+          alert('Login failed: ' + error.message);
+        });
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('loginPage').classList.add('hidden');
+        document.getElementById('chatUI').classList.remove('hidden');
+      }
+    });
+  </script>
 </head>
 <body>
-  <select id="themeToggle" onchange="changeTheme(this.value)">
-    <option value="dark">🌙 Dark</option>
-    <option value="light">☀️ Light</option>
-    <option value="blue">🌊 Blue</option>
-    <option value="pink">🌸 Pink</option>
-    <option value="cyber">⚡ Cyber</option>
-  </select>
-
-  <div id="chat"></div>
-
-  <div class="controls">
-    <button onclick="sendPredefined('weather')" title="Weather">⛅</button>
-    <button onclick="sendPredefined('joke')" title="Joke">😂</button>
-    <button onclick="openWebsite()" title="Visit Site">🌐</button>
-    <button onclick="stopSpeaking()" title="Stop Speaking">🛑</button>
-    <button onclick="clearChat()" title="Clear Chat">🧹 Clear</button>
-    <button onclick="exportChat()" title="Download Chat">⬇️ Export</button>
-    <select id="voiceSelect"></select>
+  <div id="loginPage">
+    <h1>Ripple Studio AI</h1>
+    <button id="googleSignIn">Sign in with Google</button>
   </div>
-
-  <div id="inputArea">
-    <button class="mic-button" onclick="startListening()">🎤</button>
-    <input type="text" id="input" placeholder="Tap mic or type..." onkeydown="if(event.key==='Enter') sendMessage()" />
+  <div id="chatUI" class="hidden">
+    <select id="themeToggle">
+      <option value="dark">🌙 Dark</option>
+      <option value="light">☀️ Light</option>
+      <option value="blue">🌊 Blue</option>
+      <option value="pink">🌸 Pink</option>
+      <option value="cyber">⚡ Cyber</option>
+    </select>
+    <div id="chat"></div>
+    <div class="controls">
+      <button title="Weather">⛅</button>
+      <button title="Joke">😂</button>
+      <button title="Website">🌐</button>
+      <button title="Stop">🛑</button>
+      <button title="Clear">🧹 Clear</button>
+      <button title="Export">⬇️ Export</button>
+      <select id="voiceSelect">
+        <option>Microsoft David - English (United States)</option>
+      </select>
+    </div>
+    <div id="inputArea">
+      <button class="mic-button">🎤</button>
+      <input id="input" type="text" placeholder="Tap mic or type...">
+    </div>
   </div>
-
-<script>
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-const apiKey = "AIzaSyDTl7ffNufPlG8w9AGbdQl02H4HmCs5h-A";
-const voiceSelect = document.getElementById("voiceSelect");
-let voices = [];
-
-function populateVoiceList() {
-  voices = speechSynthesis.getVoices();
-  voiceSelect.innerHTML = voices.map((v, i) => `<option value="${i}">${v.name} (${v.lang})</option>`).join("");
-}
-speechSynthesis.onvoiceschanged = populateVoiceList;
-populateVoiceList();
-
-function changeTheme(theme) {
-  document.body.className = theme === 'dark' ? '' : theme;
-  localStorage.setItem("theme", theme);
-}
-const savedTheme = localStorage.getItem("theme") || "dark";
-changeTheme(savedTheme);
-document.getElementById("themeToggle").value = savedTheme;
-
-function appendMessage(text, sender, save = true) {
-  const msg = document.createElement("div");
-  msg.className = "message " + sender;
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  msg.innerHTML = `<small>${time}</small>${formatText(text)}`;
-  chat.appendChild(msg);
-  chat.scrollTop = chat.scrollHeight;
-  if (save) saveMessage(text, sender);
-  return msg;
-}
-
-function formatText(text) {
-  return text
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
-    .replace(/\*(.*?)\*/g, "<i>$1</i>")
-    .replace(/\n/g, "<br>");
-}
-
-function speak(text) {
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.voice = voices[voiceSelect.value] || voices[0];
-  utter.lang = 'en-US';
-  speechSynthesis.speak(utter);
-}
-function stopSpeaking() { speechSynthesis.cancel(); }
-
-function sendMessage() {
-  const msg = input.value.trim();
-  if (!msg) return;
-  if (!navigator.onLine) {
-    appendMessage("You are offline. Please check your connection.", "bot");
-    return;
-  }
-  appendMessage(msg, "user");
-  input.value = "";
-  const stopLoading = appendLoading();
-  sendToGemini(msg, stopLoading);
-}
-
-function sendToGemini(prompt, stopLoading) {
-  fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generation_config: { maxOutputTokens: 300, temperature: 0.7 } })
-  })
-  .then(res => res.json())
-  .then(data => {
-    stopLoading();
-    let reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Sorry, didn’t get that.";
-    appendMessage(reply, "bot");
-    speak(reply);
-  })
-  .catch(err => {
-    stopLoading();
-    appendMessage("Error fetching response.", "bot");
-    console.error(err);
-  });
-}
-
-function startListening() {
-  if (!('webkitSpeechRecognition' in window)) return alert("Speech recognition not supported.");
-  const recognition = new webkitSpeechRecognition();
-  recognition.lang = 'en-US';
-  recognition.start();
-  recognition.onresult = e => {
-    input.value = e.results[0][0].transcript;
-    sendMessage();
-  };
-  recognition.onerror = () => alert("Could not hear you.");
-}
-
-function appendLoading() {
-  const loading = document.createElement("div");
-  loading.className = "message bot loading";
-  loading.textContent = "Thinking";
-  chat.appendChild(loading);
-  let dots = 0;
-  const interval = setInterval(() => {
-    dots = (dots + 1) % 4;
-    loading.textContent = "Thinking" + ".".repeat(dots);
-  }, 500);
-  return () => { clearInterval(interval); chat.removeChild(loading); };
-}
-
-function sendPredefined(type) {
-  if (type === 'weather') {
-    if (!navigator.geolocation) return appendMessage("Geolocation not supported.", "bot");
-    navigator.geolocation.getCurrentPosition(async pos => {
-      const message = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-      appendMessage("What's the weather today?", "user");
-      appendMessage(message, "bot");
-      speak(message);
-    }, () => appendMessage("Unable to get your location.", "bot"));
-  } else if (type === 'joke') {
-    input.value = "Tell me a joke.";
-    sendMessage();
-  }
-}
-function openWebsite() {
-  const url = prompt("Enter website URL (https://...):", "https://ripplestudio.in");
-  if (url) window.open(url, '_blank');
-}
-async function fetchWeather(lat, lon) {
-  try {
-    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=46bb2e0a68c219113b00a5ce46ce947b&units=metric`);
-    const data = await res.json();
-    return data.main ? `The weather in ${data.name} is ${data.weather[0].description} with ${data.main.temp}°C.` : "Sorry, I couldn't get the weather.";
-  } catch { return "Weather service is currently unavailable."; }
-}
-function saveMessage(text, sender) {
-  let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-  history.push({ text, sender });
-  localStorage.setItem("chatHistory", JSON.stringify(history));
-}
-function loadHistory() {
-  JSON.parse(localStorage.getItem("chatHistory") || "[]").forEach(msg => appendMessage(msg.text, msg.sender, false));
-}
-function clearChat() {
-  localStorage.removeItem("chatHistory");
-  chat.innerHTML = "";
-}
-function exportChat() {
-  let history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-  let text = history.map(m => `${m.sender.toUpperCase()}: ${m.text.replace(/<br>/g, '\n')}`).join("\n\n");
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "Ripple_Chat_History.txt";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-window.onload = loadHistory;
-</script>
 </body>
 </html>
